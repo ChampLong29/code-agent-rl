@@ -138,7 +138,7 @@ def _safe_bash(command: str, cwd: Path, timeout: int = 30) -> tuple[str, bool]:
 def _safe_read(path: str, workdir: Path) -> tuple[str, bool]:
     try:
         fp = (workdir / path).resolve()
-        if not str(fp).startswith(str(workdir)):
+        if not str(fp).startswith(str(workdir.resolve())):
             return "Error: Path escapes workspace", True
         return fp.read_text()[:10000], False
     except Exception as e:
@@ -148,7 +148,7 @@ def _safe_read(path: str, workdir: Path) -> tuple[str, bool]:
 def _safe_write(path: str, content: str, workdir: Path) -> tuple[str, bool]:
     try:
         fp = (workdir / path).resolve()
-        if not str(fp).startswith(str(workdir)):
+        if not str(fp).startswith(str(workdir.resolve())):
             return "Error: Path escapes workspace", True
         fp.parent.mkdir(parents=True, exist_ok=True)
         fp.write_text(content)
@@ -160,7 +160,7 @@ def _safe_write(path: str, content: str, workdir: Path) -> tuple[str, bool]:
 def _safe_edit(path: str, old_text: str, new_text: str, workdir: Path) -> tuple[str, bool]:
     try:
         fp = (workdir / path).resolve()
-        if not str(fp).startswith(str(workdir)):
+        if not str(fp).startswith(str(workdir.resolve())):
             return "Error: Path escapes workspace", True
         c = fp.read_text()
         if old_text not in c:
