@@ -1,0 +1,62 @@
+# verl_grpo.yaml — Phase 2d: veRL GRPO 配置
+
+_base_: base.yaml
+
+# ── 模型路径 ──
+verl_grpo:
+  model_path:   "checkpoints/sft_merged"   # SFT 冷启动后的合并模型
+  output_dir:   "checkpoints/verl_grpo"
+
+  # ── Rollout 采样 ──
+  group_size:              8      # G：每 prompt 采样多少条轨迹（GRPO 核心）
+  max_steps_per_episode:   15     # agent 每轮最大工具调用步数
+  rollout_temperature:     0.8    # 采样温度（训练时高，评估时低）
+
+  # ── 训练超参 ──
+  num_iterations:          200
+  prompts_per_batch:       4      # 每次迭代使用几个 prompt
+  learning_rate:           5.0e-6
+  kl_coeff:                0.04   # β（Search-R1 推荐值）
+  clip_epsilon:            0.2    # ε
+  max_grad_norm:           1.0
+  gradient_accumulation_steps: 4
+  save_steps:              20
+  max_seq_length:          2048
+
+  # ── veRL 框架参数 ──
+  # rollout_backend 选项：
+  #   "vllm"   — 推荐，吞吐量最高（需要 pip install vllm）
+  #   "sglang" — multi-turn 工具调用支持最完整（需要 pip install sglang）
+  #   "hf"     — 调试用，无需额外安装
+  rollout_backend:   "vllm"
+
+  # train_backend 选项：
+  #   "fsdp"    — PyTorch FSDP，单机多卡推荐
+  #   "fsdp2"   — PyTorch FSDP2，更省显存（torch >= 2.4）
+  #   "megatron" — 多机多卡，万亿参数级别
+  train_backend:     "fsdp"
+
+  gpu_memory_utilization: 0.7    # rollout vLLM 占比，留出训练显存
+
+  # ── Rollout 模式 ──
+  # multiturn: true  → 真实多轮工具调用（推荐，奖励最准确）
+  #            false → single-turn + replay（兼容性更好，训练更简单）
+  multiturn:   true
+
+  # ── LoRA（显存紧张时开启，1.5B 模型通常不需要）──
+  use_lora:    false
+  lora_r:      16
+  lora_alpha:  32
+  lora_target_modules:
+    - q_proj
+    - k_proj
+    - v_proj
+    - o_proj
+
+  # ── 日志 ──
+  # logger 选项: "console" | "wandb" | "tensorboard" | "swanlab" | "mlflow"
+  logger: ["console"]
+  # wandb_project: "learn-claude-code"   # 需要 pip install wandb
+
+  # ── 硬件 ──
+  n_gpus_per_node: null   # null = 自动检测

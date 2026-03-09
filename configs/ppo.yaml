@@ -1,0 +1,25 @@
+# ppo.yaml — Phase 2a: PPO 配置
+
+_base_: base.yaml
+
+ppo:
+  model_path:  "checkpoints/sft_merged"
+  output_dir:  "checkpoints/ppo"
+
+  max_steps_per_episode:  15
+  rollout_temperature:    0.7
+  episodes_per_update:    16
+
+  num_iterations:               300
+  learning_rate:                1.0e-5
+  ppo_epochs:                   4      # 每批数据重复更新次数
+  clip_epsilon:                 0.2
+  value_coeff:                  0.5    # Critic loss 系数 c1
+  entropy_coeff:                0.01   # 熵正则系数 c2
+  gamma:                        0.99   # 折扣因子
+  gae_lambda:                   0.95   # GAE lambda
+  max_grad_norm:                1.0
+  kl_target:                    0.02   # 自适应 KL 目标
+  save_steps:                   30
+
+  mode: "trl"  # "custom" | "trl"

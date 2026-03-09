@@ -1,0 +1,70 @@
+# rl_training 依赖包
+# 安装：pip install -r requirements.txt
+
+# ---------- 核心依赖 ----------
+
+# Anthropic SDK（teacher rollout / 数据生成）
+anthropic>=0.40.0
+python-dotenv>=1.0.0
+
+# PyTorch（GPU 版本请到 pytorch.org 选择对应命令安装）
+# pip install torch==2.4.0 --index-url https://download.pytorch.org/whl/cu121
+torch>=2.2.0
+
+# HuggingFace 生态
+transformers>=4.47.0
+datasets>=3.0.0
+accelerate>=1.2.0
+peft>=0.13.0          # LoRA
+safetensors>=0.4.0
+
+# TRL（PPO / DPO / GRPO Trainer）
+trl>=0.12.0
+
+# ---------- 推理加速 ----------
+
+# vLLM（RL rollout 推理加速，建议有 GPU 时安装）
+# pip install vllm>=0.6.0
+
+# Flash Attention 2（显著加速 attention，强烈推荐）
+# pip install flash-attn --no-build-isolation
+
+# ---------- 量化（显存紧张时使用 QLoRA）----------
+
+# bitsandbytes>=0.43.0
+
+# ---------- 可选：训练监控 ----------
+
+# wandb>=0.18.0
+# tensorboard>=2.17.0
+
+# ---------- 工具依赖 ----------
+
+# YAML 配置文件解析
+pyyaml>=6.0.1
+
+# 进度条
+tqdm>=4.67.0
+
+# 数值计算
+numpy>=1.26.0
+
+# ---------- SLIME 框架（可选）----------
+# git clone https://github.com/PRIME-RL/SLIME
+# pip install -e SLIME/
+
+# ---------- veRL 框架（可选，推荐用于生产级 GRPO）----------
+# 稳定版
+# pip install verl
+# 最新版（含完整 multi-turn 工具调用支持）
+# pip install git+https://github.com/verl-project/verl.git
+#
+# veRL 依赖（安装 verl 时自动安装）：
+# ray[default]>=2.10.0       # 分布式调度
+# omegaconf>=2.3.0           # 配置管理
+#
+# veRL multi-turn rollout 加速（可选）：
+# pip install sglang         # SGLang 推理引擎（multi-turn 首选）
+
+# ---------- 开发/测试 ----------
+pytest>=8.0.0

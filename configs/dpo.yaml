@@ -1,0 +1,33 @@
+# dpo.yaml — Phase 2b: DPO 配置
+
+_base_: base.yaml
+
+dpo:
+  model_path:  "checkpoints/sft_merged"
+  output_dir:  "checkpoints/dpo"
+  data_path:   "data/rl/dpo_pairs.jsonl"
+
+  # DPO 核心参数
+  beta: 0.1          # 温度参数（越小越激进，通常 0.05~0.5）
+  loss_type: "sigmoid"  # "sigmoid" | "hinge" | "ipo"
+
+  # 训练超参（DPO 学习率要比 SFT 小 10-100 倍）
+  num_train_epochs:             3
+  per_device_train_batch_size:  2
+  gradient_accumulation_steps:  4
+  learning_rate:                5.0e-7
+  warmup_ratio:                 0.1
+  lr_scheduler_type:            "cosine"
+  max_length:                   2048
+  max_prompt_length:            512
+  logging_steps:                10
+  save_steps:                   100
+  eval_strategy:                "steps"
+  eval_steps:                   100
+  report_to:                    "none"
+
+  # 偏好对生成参数
+  pair_gen:
+    n_attempts:        6     # 每个任务尝试多少次
+    min_reward_diff:   0.3   # 最小奖励差距（过滤掉差距太小的对）
+    teacher_model:     null

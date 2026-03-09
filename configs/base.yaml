@@ -1,0 +1,32 @@
+# base.yaml — 基础配置（所有阶段共享）
+
+# 模型
+model:
+  base: "Qwen/Qwen2.5-Coder-1.5B-Instruct"  # 或 3B 版本
+  # base: "Qwen/Qwen2.5-Coder-3B-Instruct"
+
+# 路径
+paths:
+  data_raw:    "data/raw"
+  data_sft:    "data/sft"
+  data_rl:     "data/rl"
+  checkpoints: "checkpoints"
+  eval_output: "eval/results"
+
+# 环境
+environment:
+  max_steps: 15
+  bash_timeout: 30
+
+# 奖励权重
+reward:
+  outcome:    1.0
+  process:    0.3
+  format:     0.2
+  efficiency: 0.1
+
+# 硬件
+hardware:
+  bf16: true
+  gradient_checkpointing: true
+  dataloader_num_workers: 0

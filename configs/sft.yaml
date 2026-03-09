@@ -1,0 +1,45 @@
+# sft.yaml — Phase 1: LoRA SFT 配置
+
+_base_: base.yaml
+
+sft:
+  # 数据
+  data_path:     "data/sft/train.jsonl"
+  output_dir:    "checkpoints/sft_lora"
+  merged_dir:    "checkpoints/sft_merged"
+
+  # LoRA
+  lora:
+    r:            16
+    alpha:        32
+    dropout:      0.05
+    target_modules:
+      - "q_proj"
+      - "k_proj"
+      - "v_proj"
+      - "o_proj"
+      - "gate_proj"
+      - "up_proj"
+
+  # 训练超参
+  training:
+    max_seq_length:               2048
+    num_train_epochs:             3
+    per_device_train_batch_size:  1
+    gradient_accumulation_steps:  8      # 等效 bs = 8
+    learning_rate:                2.0e-4
+    warmup_ratio:                 0.05
+    lr_scheduler_type:            "cosine"
+    optim:                        "adamw_torch"
+    logging_steps:                10
+    save_steps:                   100
+    save_total_limit:             3
+    eval_strategy:                "steps"
+    eval_steps:                   100
+    report_to:                    "none"  # 改为 "wandb" 开启可视化
+
+  # 数据生成参数
+  data_gen:
+    n_per_task:    3       # 每个任务生成多少条成功轨迹
+    max_attempts:  10      # 每个任务最多尝试次数
+    teacher_model: null    # null = 使用环境变量 MODEL_ID
