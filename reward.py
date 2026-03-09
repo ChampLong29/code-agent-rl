@@ -364,7 +364,7 @@ if __name__ == "__main__":
     traj = Trajectory(task_id="test_001", prompt="写一个求和函数并通过测试")
     traj.tool_calls = [
         ToolCall("read_file", {"path": "test_sum.py"}, "def test_sum(): assert add(1,2)==3"),
-        ToolCall("write_file", {"path": "solution.py"}, "def add(a,b): return a+b"},
+        ToolCall("write_file", {"path": "solution.py"}, "def add(a,b): return a+b"),
         ToolCall("bash", {"command": "pytest test_sum.py -q"}, "1 passed in 0.1s"),
     ]
     traj.messages = [
