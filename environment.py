@@ -171,6 +171,39 @@ def _safe_edit(path: str, old_text: str, new_text: str, workdir: Path) -> tuple[
         return f"Error: {e}", True
 
 
+def _safe_search(query: str, max_results: int = 3) -> tuple[str, bool]:
+    """
+    网络搜索工具。优先用 DuckDuckGo（免费无 key），
+    降级到返回提示信息（离线环境）。
+
+    Search-R1 的核心洞察：让小模型通过搜索补充知识，
+    可以大幅提升 RL 训练中的成功率，从而让奖励信号更密集。
+    """
+    query = query.strip()[:200]  # 截断过长的 query
+    if not query:
+        return "Error: Empty search query", True
+    try:
+        from duckduckgo_search import DDGS
+        with DDGS() as ddgs:
+            results = list(ddgs.text(query, max_results=max_results))
+        if not results:
+            return "No results found.", False
+        lines = []
+        for i, r in enumerate(results, 1):
+            lines.append(f"[{i}] {r.get('title', '')}")
+            lines.append(f"    {r.get('href', '')}")
+            lines.append(f"    {r.get('body', '')[:300]}")
+            lines.append("")
+        return "\n".join(lines)[:3000], False
+    except ImportError:
+        return (
+            "Search unavailable (install: pip install duckduckgo-search). "
+            "Try solving without search."
+        ), False
+    except Exception as e:
+        return f"Search error: {e}", True
+
+
 # ---------------------------------------------------------------------------
 # 核心环境类
 # ---------------------------------------------------------------------------
@@ -246,6 +279,21 @@ class AgentEnvironment:
                     "new_text": {"type": "string"},
                 },
                 "required": ["path", "old_text", "new_text"],
+            },
+        },
+        {
+            "name": "search",
+            "description": (
+                "Search the web for information. Use this when you need to look up "
+                "APIs, algorithms, or examples before writing code."
+            ),
+            "input_schema": {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "Search query"},
+                    "max_results": {"type": "integer", "description": "Number of results (1-5)", "default": 3},
+                },
+                "required": ["query"],
             },
         },
     ]
@@ -384,6 +432,8 @@ class AgentEnvironment:
                 inp.get("path", ""), inp.get("old_text", ""),
                 inp.get("new_text", ""), self._workdir,
             )
+        elif name == "search":
+            return _safe_search(inp.get("query", ""), inp.get("max_results", 3))
         else:
             return f"Unknown tool: {name}", True
 

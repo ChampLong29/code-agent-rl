@@ -49,6 +49,9 @@ tqdm>=4.67.0
 # 数值计算
 numpy>=1.26.0
 
+# 搜索工具（search tool，免费无需 API key）
+duckduckgo-search>=6.0.0
+
 # ---------- SLIME 框架（可选）----------
 # git clone https://github.com/PRIME-RL/SLIME
 # pip install -e SLIME/
