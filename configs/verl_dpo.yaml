@@ -1,0 +1,73 @@
+# configs/verl_dpo.yaml — Phase 2c: DPO（veRL FSDP 生产级配置）
+#
+# 与 dpo.yaml（TRL 单卡）的区别：
+#   - 使用 veRL FSDP 进行多卡分布式训练
+#   - Policy 和 Reference 均以 FSDP 方式分片到多张 GPU
+#   - 支持 sigmoid / hinge / ipo 三种 DPO loss 变体
+#
+# 启动命令（多卡）：
+#   torchrun --nproc_per_node=2 train/verl_dpo.py train \
+#       --model checkpoints/sft_merged \
+#       --data data/rl/dpo_pairs.jsonl
+#
+# 启动命令（单卡调试）：
+#   make verl-dpo-single
+#
+# 与 veRL SFT 配置对齐（from_fsdp_sft_trainer() 接口）：
+#   trainer:
+#     model_path: ...
+#     total_epochs: ...
+#     lr: ...
+
+_base_: base.yaml
+
+verl_dpo:
+  model_path:   "checkpoints/sft_merged"
+  output_dir:   "checkpoints/verl_dpo"
+  data_path:    "data/rl/dpo_pairs.jsonl"
+
+  # ── DPO 核心参数 ──
+  beta: 0.1
+  # loss_type:
+  #   sigmoid → 标准 DPO（推荐起点）
+  #   hinge   → 保守 DPO（只在 margin 不足时更新，防止过拟合）
+  #   ipo     → IPO（对奖励 over-optimization 更鲁棒）
+  loss_type: "sigmoid"
+  label_smoothing: 0.0    # >0 时允许 chosen/rejected 之间的不确定性
+
+  # ── 训练超参 ──
+  # 注意：DPO 的 lr 要比 SFT 小 10-100 倍
+  num_train_epochs:             3
+  per_device_train_batch_size:  1    # FSDP 模式每卡 bs=1，靠 grad_accum 增大等效 bs
+  gradient_accumulation_steps:  4    # 等效 global bs = n_gpus × 4
+  learning_rate:                5.0e-7
+  warmup_ratio:                 0.1
+  lr_scheduler_type:            "cosine"
+  max_grad_norm:                1.0
+  max_length:                   2048
+  logging_steps:                10
+  save_steps:                   100
+
+  # ── veRL FSDP 参数 ──
+  bf16:                         true
+  gradient_checkpointing:       true   # 大幅减少激活值显存
+  fsdp_offload:                 false  # 显存不足时设为 true（会降低速度）
+  fsdp_reshard_after_forward:   true
+
+  # ── 监控 ──
+  report_to: "none"    # "wandb" | "swanlab" | "none"
+
+  # ── 偏好对生成参数（与 dpo.yaml 共用）──
+  pair_gen:
+    n_attempts:       6
+    min_reward_diff:  0.3
+    teacher_model:    null
+
+# ── 显存估算（1.5B, DPO, bf16, 2卡 FSDP）──
+# Policy  : ~1.5GB/卡（FSDP 2卡均分）
+# Ref     : ~1.5GB/卡（frozen，FSDP 2卡均分）
+# 梯度     : ~1.5GB/卡（policy only）
+# 优化器   : ~3GB/卡（AdamW, policy only）
+# 激活值   : ~1GB/卡（gradient_checkpointing 后）
+# 合计     : ~9GB/卡 → 2× A100 40G 绰绰有余
+# 单卡模式 : ~17GB   → A100 40G 可运行（verl-dpo-single）

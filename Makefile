@@ -1,7 +1,7 @@
 # Makefile — 一键运行各训练阶段
 # 用法: make <target>
 
-.PHONY: help install install-dev install-verl install-monitor data sft sft-merge grpo grpo-trl grpo-slime grpo-verl grpo-verl-singleturn ppo dpo eval compare clean
+.PHONY: help install install-dev install-verl install-monitor data sft sft-merge grpo grpo-trl grpo-slime grpo-verl grpo-verl-singleturn ppo dpo verl-dpo verl-dpo-single eval compare clean
 
 PYTHON := uv run python
 MODEL ?= Qwen/Qwen2.5-Coder-1.5B-Instruct
@@ -33,8 +33,8 @@ help:
 	@echo "    make dpo              DPO（离线偏好）"
 	@echo "    ── 生产模式（veRL 框架）──"
 	@echo "    make grpo-verl        GRPO veRL multi-turn（真实工具调用，推荐）"
-	@echo "    make grpo-verl-singleturn  GRPO veRL single-turn（兼容性好）"
-	@echo ""
+	@echo "    make grpo-verl-singleturn  GRPO veRL single-turn（兼容性好）"	@echo "    make verl-dpo         DPO veRL FSDP（多卡，SFT 基础设施 + DPO loss）"
+	@echo "    make verl-dpo-single  DPO veRL 单卡（本地调试，无需 torchrun）"	@echo ""
 	@echo "  全流程"
 	@echo "    make pipeline         data→sft→sft-merge→grpo→eval（教学管线）"
 	@echo "    make pipeline-verl    data→sft→sft-merge→grpo-verl→eval（生产管线）"
@@ -218,13 +218,38 @@ ppo:
 	@echo "✓ PPO 训练完成"
 
 dpo:
-	@echo "==> Phase 2b: DPO..."
+	@echo "==> Phase 2b: DPO（TRL DPOTrainer，单卡）..."
 	BASE_MODEL=$(SFT_MERGED) $(PYTHON) train/rl_dpo.py \
 		--model $(SFT_MERGED) \
 		--output checkpoints/dpo \
 		--data data/rl/dpo_pairs.jsonl \
 		--beta 0.1
 	@echo "✓ DPO 训练完成"
+
+# ── veRL FSDP DPO ──
+
+verl-dpo:
+	@echo "==> Phase 2c: DPO veRL FSDP 多卡..."
+	@echo "     trainer: FSDP   loss: DPO (sigmoid)   ref: frozen FSDP"
+	@echo "     启动方式: torchrun --nproc_per_node=$(N_GPUS) train/verl_dpo.py train ..."
+	torchrun \
+		--nproc_per_node=$(or $(N_GPUS),$(shell python -c 'import torch; print(torch.cuda.device_count() or 1)')) \
+		train/verl_dpo.py train \
+		--model $(SFT_MERGED) \
+		--output checkpoints/verl_dpo \
+		--data data/rl/dpo_pairs.jsonl \
+		--beta 0.1 \
+		--loss-type sigmoid
+	@echo "✓ veRL DPO 训练完成"
+
+verl-dpo-single:
+	@echo "==> Phase 2c: DPO veRL 单卡（本地 debug）..."
+	BASE_MODEL=$(SFT_MERGED) $(PYTHON) train/verl_dpo.py train-single \
+		--model $(SFT_MERGED) \
+		--output checkpoints/verl_dpo_single \
+		--data data/rl/dpo_pairs.jsonl \
+		--beta 0.1
+	@echo "✓ veRL DPO 单卡训练完成"
 
 # ============================================================
 # 全流程（GRPO 管线）
@@ -264,6 +289,7 @@ compare:
 			grpo:checkpoints/grpo/final \
 			ppo:checkpoints/ppo/final \
 			dpo:checkpoints/dpo/final \
+			verl-dpo:checkpoints/verl_dpo/checkpoint-final \
 		--n-per-task 2 \
 		--output eval/results
 
