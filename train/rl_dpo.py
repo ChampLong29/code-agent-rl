@@ -45,6 +45,7 @@ from environment import Trajectory
 from reward import RewardFn
 from rollout import RolloutSampler, make_anthropic_model_fn
 from scripts.generate_sft_data import SEED_TASKS, SYSTEM_PROMPT
+from hub_utils import resolve_model_path
 
 
 # ---------------------------------------------------------------------------
@@ -229,18 +230,19 @@ def train_dpo(
     print(f"训练集: {len(train_ds)} 对, 验证集: {len(eval_ds)} 对")
 
     # 加载模型
-    print(f"加载模型: {model_path}")
-    tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
+    resolved_model_path = resolve_model_path(model_path)
+    print(f"加载模型: {model_path} -> {resolved_model_path}")
+    tokenizer = AutoTokenizer.from_pretrained(resolved_model_path, trust_remote_code=True)
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
 
     model = AutoModelForCausalLM.from_pretrained(
-        model_path, torch_dtype=torch.bfloat16, device_map="auto", trust_remote_code=True
+        resolved_model_path, torch_dtype=torch.bfloat16, device_map="auto", trust_remote_code=True
     )
 
     # 参考模型（自动由 DPOTrainer 管理）
     ref_model = AutoModelForCausalLM.from_pretrained(
-        model_path, torch_dtype=torch.bfloat16, device_map="auto", trust_remote_code=True
+        resolved_model_path, torch_dtype=torch.bfloat16, device_map="auto", trust_remote_code=True
     )
 
     dpo_config = DPOConfig(

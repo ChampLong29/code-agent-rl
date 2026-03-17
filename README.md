@@ -96,6 +96,9 @@ User prompt
 ```bash
 cd learn-claude-code/rl_training
 pip install -r requirements.txt
+
+# 可选：强制使用 HuggingFace 直连（默认优先 ModelScope）
+# set PREFER_MODELSCOPE=0
 ```
 
 ### 一键运行
@@ -114,6 +117,26 @@ make grpo
 make eval
 ```
 
+### 本地模型 Agent CLI 测试（原生工具调用）
+
+```bash
+# vLLM 后端（推荐）
+make agent-cli MODEL_PATH=/path/to/your/local/Qwen3.5
+
+# HF 后端（调试）
+make agent-cli-hf MODEL_PATH=/path/to/your/local/Qwen3.5
+```
+
+### veRL 最新版安装（推荐 WSL）
+
+```bash
+uv venv .venv-wsl --python 3.12
+uv pip install --python .venv-wsl/bin/python -U pip setuptools wheel
+uv pip install --python .venv-wsl/bin/python git+https://github.com/verl-project/verl.git
+```
+
+如果你在 Windows 上训练，建议在 WSL/Linux 环境安装与运行 RL。
+
 ---
 
 ## 模块速览
@@ -123,7 +146,7 @@ make eval
 | `environment.py` | 沙箱执行环境，隔离工具调用，记录轨迹 | [docs/01-environment.md](docs/01-environment.md) |
 | `reward.py` | 可验证奖励函数（格式、工具调用、任务完成度） | [docs/02-reward.md](docs/02-reward.md) |
 | `rollout.py` | 批量采样 rollout，支持 vLLM 推理 | [docs/03-rollout.md](docs/03-rollout.md) |
-| `train/sft_lora.py` | LoRA SFT 冷启动，HuggingFace Trainer | [docs/04-sft-lora.md](docs/04-sft-lora.md) |
+| `train/sft_lora.py` | LoRA SFT 冷启动，ModelScope 优先加载 + TRL Trainer | [docs/04-sft-lora.md](docs/04-sft-lora.md) |
 | `train/rl_ppo.py` | PPO 在线强化学习，基于 TRL | [docs/05-ppo.md](docs/05-ppo.md) |
 | `train/rl_dpo.py` | DPO 离线偏好学习，基于 TRL | [docs/06-dpo.md](docs/06-dpo.md) |
 | `train/rl_grpo.py` | GRPO Search-R1 风格，custom / TRL / SLIME | [docs/07-grpo.md](docs/07-grpo.md) |

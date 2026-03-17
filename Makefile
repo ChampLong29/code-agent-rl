@@ -1,7 +1,7 @@
 # Makefile — 一键运行各训练阶段
 # 用法: make <target>
 
-.PHONY: help install install-dev install-verl install-monitor data sft sft-merge grpo grpo-trl grpo-slime grpo-verl grpo-verl-singleturn ppo dpo verl-dpo verl-dpo-single eval compare clean
+.PHONY: help install install-dev install-verl install-verl-wsl install-monitor data sft sft-merge grpo grpo-trl grpo-slime grpo-verl grpo-verl-singleturn ppo dpo verl-dpo verl-dpo-single agent-cli agent-cli-hf eval compare clean
 
 PYTHON := uv run python
 MODEL ?= Qwen/Qwen2.5-Coder-1.5B-Instruct
@@ -17,6 +17,7 @@ help:
 	@echo "    make install-dev      安装开发工具（ruff, pyright）"
 	@echo "    make install-monitor  安装监控工具（wandb, swanlab）"
 	@echo "    make install-verl     从 git 安装 veRL 框架"
+	@echo "    make install-verl-wsl 在 WSL 中安装 veRL（推荐）"
 	@echo "    make data             生成 SFT 数据 (teacher rollout)"
 	@echo "    make dpo-pairs        生成 DPO 偏好对数据"
 	@echo ""
@@ -44,6 +45,8 @@ help:
 	@echo "    make compare          对比 SFT vs GRPO vs PPO vs DPO"
 	@echo ""
 	@echo "  工具"
+	@echo "    make agent-cli        本地模型 Agent 工具调用 CLI 测试（vLLM）"
+	@echo "    make agent-cli-hf     本地模型 Agent 工具调用 CLI 测试（HF）"
 	@echo "    make clean            清理所有检查点"
 	@echo "    make test             运行单元测试"
 	@echo "    make test-verl        测试 veRL 奖励适配层（无需 GPU）"
@@ -76,11 +79,8 @@ install-monitor:
 	@echo "  make install-verl"
 
 install-verl:
-	@echo "==> 安装 veRL 框架（必须从源码安装）..."
-	@if [ ! -d "/tmp/verl" ]; then \
-	    git clone https://github.com/volcengine/verl.git /tmp/verl; \
-	fi
-	uv pip install --no-deps -e /tmp/verl
+	@echo "==> 安装 veRL 框架（GitHub 最新版）..."
+	uv pip install git+https://github.com/verl-project/verl.git
 	uv pip install ray omegaconf tensordict hydra-core codetiming pyzmq
 	@echo "✓ veRL 安装完成"
 	@echo ""
@@ -89,6 +89,11 @@ install-verl:
 	@echo ""
 	@echo "验证安装（无需 GPU）："
 	@echo "  make test-verl"
+
+install-verl-wsl:
+	@echo "==> 在 WSL 中使用 uv 安装 veRL（GitHub 最新版）..."
+	wsl -e bash -lc "cd /mnt/d/project/code-agent-rl && uv venv .venv-wsl --python 3.12 --clear && uv pip install --python .venv-wsl/bin/python -U pip setuptools wheel && uv pip install --python .venv-wsl/bin/python git+https://github.com/verl-project/verl.git"
+	@echo "✓ WSL uv 安装命令已执行"
 
 # ============================================================
 # 阶段 0: 数据准备
@@ -317,6 +322,18 @@ test-verl:
 	@echo "==> 测试 veRL 奖励适配层（无需 GPU）..."
 	$(PYTHON) train/rl_verl_grpo.py --test
 	@echo "✓ veRL 适配层测试通过"
+
+agent-cli:
+	@if [ -z "$(MODEL_PATH)" ]; then \
+		echo "用法: make agent-cli MODEL_PATH=<本地模型路径>"; exit 1; \
+	fi
+	$(PYTHON) scripts/cli_agent_local.py --model $(MODEL_PATH) --backend vllm
+
+agent-cli-hf:
+	@if [ -z "$(MODEL_PATH)" ]; then \
+		echo "用法: make agent-cli-hf MODEL_PATH=<本地模型路径>"; exit 1; \
+	fi
+	$(PYTHON) scripts/cli_agent_local.py --model $(MODEL_PATH) --backend hf
 
 test-env:
 	$(PYTHON) environment.py

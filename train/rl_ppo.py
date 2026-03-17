@@ -45,6 +45,7 @@ from environment import AgentEnvironment
 from reward import RewardFn
 from rollout import RolloutSampler, make_hf_model_fn
 from scripts.generate_sft_data import SEED_TASKS
+from hub_utils import resolve_model_path
 
 
 # ---------------------------------------------------------------------------
@@ -106,6 +107,7 @@ class ActorCritic(nn.Module):
 
     def __init__(self, model_path: str):
         super().__init__()
+        model_path = resolve_model_path(model_path)
         self.base = AutoModelForCausalLM.from_pretrained(
             model_path, torch_dtype=torch.bfloat16,
             device_map="auto", trust_remote_code=True,
@@ -229,16 +231,17 @@ def train_ppo(
     output_path.mkdir(parents=True, exist_ok=True)
 
     print(f"加载 Actor-Critic 模型: {model_path}")
-    tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
+    resolved_model_path = resolve_model_path(model_path)
+    tokenizer = AutoTokenizer.from_pretrained(resolved_model_path, trust_remote_code=True)
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
 
-    actor_critic = ActorCritic(model_path)
+    actor_critic = ActorCritic(resolved_model_path)
 
     # 参考模型（冻结，用于 KL 约束）
     from transformers import AutoModelForCausalLM as LM
     ref_model = LM.from_pretrained(
-        model_path, torch_dtype=torch.bfloat16, device_map="auto", trust_remote_code=True
+        resolved_model_path, torch_dtype=torch.bfloat16, device_map="auto", trust_remote_code=True
     )
     ref_model.eval()
     for p in ref_model.parameters():
@@ -247,7 +250,7 @@ def train_ppo(
     optimizer = torch.optim.AdamW(actor_critic.parameters(), lr=cfg["learning_rate"])
     reward_fn = RewardFn()
     sampler = RolloutSampler(max_steps=cfg["max_steps_per_episode"])
-    model_fn = make_hf_model_fn(model_path, temperature=cfg["rollout_temperature"])
+    model_fn = make_hf_model_fn(resolved_model_path, temperature=cfg["rollout_temperature"])
 
     print(f"\n开始 PPO 训练")
     print(f"  迭代: {cfg['num_iterations']}")
@@ -392,15 +395,16 @@ def train_ppo_trl(
     cfg = {**PPO_CONFIG, **(config or {})}
     tasks = tasks or SEED_TASKS
 
-    tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
+    resolved_model_path = resolve_model_path(model_path)
+    tokenizer = AutoTokenizer.from_pretrained(resolved_model_path, trust_remote_code=True)
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
 
     model = AutoModelForCausalLMWithValueHead.from_pretrained(
-        model_path, torch_dtype=torch.bfloat16, trust_remote_code=True
+        resolved_model_path, torch_dtype=torch.bfloat16, trust_remote_code=True
     )
     ref_model = AutoModelForCausalLMWithValueHead.from_pretrained(
-        model_path, torch_dtype=torch.bfloat16, trust_remote_code=True
+        resolved_model_path, torch_dtype=torch.bfloat16, trust_remote_code=True
     )
 
     ppo_config = PPOConfig(
@@ -430,7 +434,7 @@ def train_ppo_trl(
         batch_tasks = random.choices(tasks, k=cfg["episodes_per_update"])
 
         queries, responses, rewards = [], [], []
-        model_fn = make_hf_model_fn(model_path)
+        model_fn = make_hf_model_fn(resolved_model_path)
 
         for task in batch_tasks:
             traj = sampler.sample_one(task, model_fn)

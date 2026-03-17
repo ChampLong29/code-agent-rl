@@ -67,6 +67,7 @@ from environment import AgentEnvironment, TaskLoader, Trajectory
 from reward import RewardFn, RewardWeights, compute_group_advantages
 from rollout import RolloutSampler
 from scripts.generate_sft_data import SEED_TASKS
+from hub_utils import resolve_model_path
 
 
 # ---------------------------------------------------------------------------
@@ -393,7 +394,9 @@ def train_grpo_verl(
     print("=" * 60)
     print("veRL GRPO 训练")
     print("=" * 60)
+    resolved_model_path = resolve_model_path(model_path)
     print(f"  模型:        {model_path}")
+    print(f"  解析路径:    {resolved_model_path}")
     print(f"  输出:        {output_dir}")
     print(f"  任务数:      {len(tasks)}")
     print(f"  组大小 G:    {cfg['group_size']}")
@@ -415,7 +418,7 @@ def train_grpo_verl(
 
     # ── veRL 配置（OmegaConf / dataclass 风格） ──
     verl_config = _build_verl_config(
-        model_path=model_path,
+        model_path=resolved_model_path,
         output_dir=output_dir,
         cfg=cfg,
         multiturn=multiturn,
@@ -592,6 +595,8 @@ def _build_verl_config(
         from omegaconf import OmegaConf, DictConfig
     except ImportError:
         raise ImportError("请安装 omegaconf: pip install omegaconf")
+
+    model_path = resolve_model_path(model_path)
 
     # veRL 标准配置结构
     raw_cfg = {

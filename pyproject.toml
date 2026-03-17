@@ -1,0 +1,9 @@
+[project]
+name = "code-agent-rl"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "modelscope>=1.35.0",
+]

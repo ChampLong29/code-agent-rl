@@ -60,6 +60,7 @@ from train.rl_dpo import (
     generate_dpo_pairs,
     load_dpo_dataset,
 )
+from hub_utils import resolve_model_path
 
 
 # ---------------------------------------------------------------------------
@@ -411,29 +412,30 @@ class VerlDPOTrainer:
         self.device = torch.device(f"cuda:{self.rank}")
 
         # ── Tokenizer ──
+        self.base_model_path = resolve_model_path(model_path)
         if self.rank == 0:
-            print(f"加载 tokenizer: {model_path}")
+            print(f"加载 tokenizer: {model_path} -> {self.base_model_path}")
         self.tokenizer = AutoTokenizer.from_pretrained(
-            model_path, trust_remote_code=True
+            self.base_model_path, trust_remote_code=True
         )
         if self.tokenizer.pad_token is None:
             self.tokenizer.pad_token = self.tokenizer.eos_token
 
         # ── 加载原始模型（CPU，后续 FSDP 分片到 GPU）──
         if self.rank == 0:
-            print(f"加载模型（CPU）: {model_path}")
+            print(f"加载模型（CPU）: {self.base_model_path}")
         dtype = torch.bfloat16 if self.cfg["bf16"] else torch.float32
 
         # Policy model（可训练）
         policy_model_raw = AutoModelForCausalLM.from_pretrained(
-            model_path, torch_dtype=dtype, trust_remote_code=True
+            self.base_model_path, torch_dtype=dtype, trust_remote_code=True
         )
         if self.cfg["gradient_checkpointing"]:
             policy_model_raw.gradient_checkpointing_enable()
 
         # Reference model（冻结，与 policy 共享相同初始权重）
         ref_model_raw = AutoModelForCausalLM.from_pretrained(
-            model_path, torch_dtype=dtype, trust_remote_code=True
+            self.base_model_path, torch_dtype=dtype, trust_remote_code=True
         )
         for param in ref_model_raw.parameters():
             param.requires_grad_(False)
@@ -653,7 +655,7 @@ class VerlDPOTrainer:
             # 临时载入到 CPU 模型保存
             from transformers import AutoConfig
             config = AutoConfig.from_pretrained(
-                BASE_MODEL, trust_remote_code=True
+                self.base_model_path, trust_remote_code=True
             )
             cpu_model = AutoModelForCausalLM.from_config(config)
             cpu_model.load_state_dict(state_dict)
@@ -735,6 +737,8 @@ def train_dpo_single_gpu(
     dtype = torch.bfloat16 if (cfg["bf16"] and device.type == "cuda") else torch.float32
 
     print(f"单卡 DPO  device={device}  dtype={dtype}")
+
+    model_path = resolve_model_path(model_path)
 
     tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
     if tokenizer.pad_token is None:

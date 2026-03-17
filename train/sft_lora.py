@@ -36,6 +36,9 @@ from transformers import (
 )
 from trl import SFTConfig, SFTTrainer
 
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from hub_utils import resolve_model_path
+
 # ---------------------------------------------------------------------------
 # 配置（可通过命令行或 configs/sft.yaml 覆盖）
 # ---------------------------------------------------------------------------
@@ -141,10 +144,11 @@ def format_conversations(sample: dict, tokenizer) -> str:
 
 def load_model_and_tokenizer(model_name: str, use_4bit: bool = False):
     """加载基础模型和 tokenizer，应用 LoRA。"""
-    print(f"加载模型: {model_name}")
+    resolved_model = resolve_model_path(model_name)
+    print(f"加载模型: {model_name} -> {resolved_model}")
 
     tokenizer = AutoTokenizer.from_pretrained(
-        model_name, trust_remote_code=True, padding_side="right"
+        resolved_model, trust_remote_code=True, padding_side="right"
     )
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
@@ -161,7 +165,7 @@ def load_model_and_tokenizer(model_name: str, use_4bit: bool = False):
         print("使用 4-bit 量化（QLoRA 模式）")
 
     model = AutoModelForCausalLM.from_pretrained(
-        model_name,
+        resolved_model,
         quantization_config=bnb_config,
         torch_dtype=torch.bfloat16 if not use_4bit else None,
         device_map="auto",
@@ -268,8 +272,9 @@ def merge_lora_weights(adapter_path: str, output_path: str):
     print(f"合并 LoRA 权重: {adapter_path} → {output_path}")
 
     tokenizer = AutoTokenizer.from_pretrained(adapter_path, trust_remote_code=True)
+    base_model_path = resolve_model_path(BASE_MODEL)
     base_model = AutoModelForCausalLM.from_pretrained(
-        BASE_MODEL, torch_dtype=torch.bfloat16, device_map="cpu", trust_remote_code=True
+        base_model_path, torch_dtype=torch.bfloat16, device_map="cpu", trust_remote_code=True
     )
     model = PeftModel.from_pretrained(base_model, adapter_path)
     merged = model.merge_and_unload()

@@ -11,7 +11,8 @@ python-dotenv>=1.0.0
 # pip install torch==2.4.0 --index-url https://download.pytorch.org/whl/cu121
 torch>=2.2.0
 
-# HuggingFace 生态
+# ModelScope 生态（主）+ Transformers 兼容层
+modelscope>=1.25.0
 transformers>=4.47.0
 datasets>=3.0.0
 accelerate>=1.2.0
@@ -48,6 +49,7 @@ tqdm>=4.67.0
 
 # 数值计算
 numpy>=1.26.0
+packaging>=24.0
 
 # 搜索工具（search tool，免费无需 API key）
 duckduckgo-search>=6.0.0

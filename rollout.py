@@ -44,6 +44,7 @@ from pathlib import Path
 from typing import Callable
 
 from environment import AgentEnvironment, Trajectory
+from hub_utils import resolve_model_path
 
 
 # ---------------------------------------------------------------------------
@@ -118,13 +119,15 @@ def make_vllm_model_fn(
     except ImportError:
         raise ImportError("请安装 vllm: pip install vllm")
 
+    resolved_model_path = resolve_model_path(model_path)
+
     llm = LLM(
-        model=model_path,
+        model=resolved_model_path,
         gpu_memory_utilization=gpu_memory_utilization,
         trust_remote_code=True,
         dtype="bfloat16",
     )
-    tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
+    tokenizer = AutoTokenizer.from_pretrained(resolved_model_path, trust_remote_code=True)
     sampling_params = SamplingParams(
         temperature=temperature,
         max_tokens=max_tokens,
@@ -188,7 +191,7 @@ def make_vllm_model_fn(
 
 
 # ---------------------------------------------------------------------------
-# HuggingFace Transformers 模型函数（轻量，调试用）
+# Transformers / ModelScope 兼容模型函数（轻量，调试用）
 # ---------------------------------------------------------------------------
 
 def make_hf_model_fn(
@@ -199,7 +202,7 @@ def make_hf_model_fn(
     device: str = "auto",
 ) -> Callable:
     """
-    基于 HuggingFace Transformers 的轻量 model_fn。
+    基于 Transformers 的轻量 model_fn（ModelScope 优先下载）。
     适合在没有 vLLM 的情况下调试。
     """
     try:
@@ -207,6 +210,8 @@ def make_hf_model_fn(
         from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
     except ImportError:
         raise ImportError("请安装 transformers: pip install transformers torch")
+
+    model_path = resolve_model_path(model_path)
 
     tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
     model = AutoModelForCausalLM.from_pretrained(

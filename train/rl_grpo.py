@@ -48,6 +48,7 @@ from monitor import Monitor
 from reward import RewardFn, compute_group_advantages
 from rollout import RolloutSampler, make_vllm_model_fn
 from scripts.generate_sft_data import SEED_TASKS
+from hub_utils import resolve_model_path
 
 
 # ---------------------------------------------------------------------------
@@ -233,12 +234,13 @@ def train_grpo_trl(
     tasks = tasks or SEED_TASKS
 
     print(f"加载模型: {model_path}")
-    tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
+    resolved_model_path = resolve_model_path(model_path)
+    tokenizer = AutoTokenizer.from_pretrained(resolved_model_path, trust_remote_code=True)
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
 
     model = AutoModelForCausalLM.from_pretrained(
-        model_path, torch_dtype=torch.bfloat16, device_map="auto", trust_remote_code=True
+        resolved_model_path, torch_dtype=torch.bfloat16, device_map="auto", trust_remote_code=True
     )
 
     # 将 tasks 转换为 TRL 期望的 Dataset 格式
@@ -330,20 +332,21 @@ def train_grpo_custom(
     output_path.mkdir(parents=True, exist_ok=True)
 
     print(f"加载策略模型: {model_path}")
-    tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
+    resolved_model_path = resolve_model_path(model_path)
+    tokenizer = AutoTokenizer.from_pretrained(resolved_model_path, trust_remote_code=True)
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
 
     # 策略模型（被训练）
     policy_model = AutoModelForCausalLM.from_pretrained(
-        model_path, torch_dtype=torch.bfloat16, device_map="auto", trust_remote_code=True
+        resolved_model_path, torch_dtype=torch.bfloat16, device_map="auto", trust_remote_code=True
     )
     policy_model.train()
 
     # 参考模型（冻结，用于 KL 惩罚）
     print("加载参考模型（冻结）...")
     ref_model = AutoModelForCausalLM.from_pretrained(
-        model_path, torch_dtype=torch.bfloat16, device_map="auto", trust_remote_code=True
+        resolved_model_path, torch_dtype=torch.bfloat16, device_map="auto", trust_remote_code=True
     )
     ref_model.eval()
     for param in ref_model.parameters():
@@ -363,7 +366,7 @@ def train_grpo_custom(
 
     # rollout 使用 HF 模型（避免 vLLM 显存冲突，生产环境建议分离）
     from rollout import make_hf_model_fn
-    model_fn = make_hf_model_fn(model_path, temperature=cfg["rollout_temperature"])
+    model_fn = make_hf_model_fn(resolved_model_path, temperature=cfg["rollout_temperature"])
 
     print(f"\n开始自定义 GRPO 训练")
     print(f"  迭代次数: {cfg['num_iterations']}")
@@ -497,6 +500,7 @@ def train_grpo_slime(
 
     cfg = {**GRPO_CONFIG, **(config or {})}
     tasks = tasks or SEED_TASKS
+    resolved_model_path = resolve_model_path(model_path)
     reward_fn = RewardFn()
 
     # SLIME 期望的 rollout 函数签名
@@ -519,7 +523,7 @@ def train_grpo_slime(
 
     # SLIME 配置（参考 SLIME 文档）
     slime_config = slime.GRPOConfig(
-        model_path=model_path,
+        model_path=resolved_model_path,
         output_dir=output_dir,
         num_iterations=cfg["num_iterations"],
         group_size=cfg["group_size"],
